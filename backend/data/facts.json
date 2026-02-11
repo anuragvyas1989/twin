@@ -1,0 +1,21 @@
+{
+    "full_name": "Anurag Vyas",
+    "name": "Anurag",
+    "current_role": "Aenior Technical Consultant AI/ML ",
+    "location": "Hyderabad, India",
+    "email": "anurag.vyas7@gmail.com",
+    "linkedin": "linkedin.com/in/anuragvyas1989",
+    "specialties": [
+      "Product Management",
+      "AI/ML",
+      "MLOps"
+    ],
+    "years_experience": 10,
+    "education": [
+      {
+        "degree": "Post Graduate",
+        "institution": "IIM, Mumbai",
+        "year": "2013"
+      }
+    ]
+  }
