@@ -255,8 +255,10 @@ resource "aws_lambda_permission" "api_gw" {
 }
 
 # CloudFront distribution
+# Each environment (dev, test, prod) gets its own separate CloudFront distribution
 # When using custom domain, wait for ACM certificate to be validated (must be in us-east-1)
 resource "aws_cloudfront_distribution" "main" {
+  comment = "${local.name_prefix} CloudFront Distribution"
   aliases = local.aliases
   depends_on = [aws_acm_certificate_validation.site]
 
