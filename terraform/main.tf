@@ -14,6 +14,10 @@ locals {
     Environment = var.environment
     ManagedBy   = "terraform"
   }
+
+  # Use existing IAM role when specified, otherwise use the one we create
+  lambda_role_name = var.existing_lambda_role_name != "" ? var.existing_lambda_role_name : aws_iam_role.lambda_role[0].name
+  lambda_role_arn  = var.existing_lambda_role_name != "" ? data.aws_iam_role.existing_lambda[0].arn : aws_iam_role.lambda_role[0].arn
 }
 
 # S3 bucket for conversation memory
@@ -85,10 +89,17 @@ resource "aws_s3_bucket_policy" "frontend" {
   depends_on = [aws_s3_bucket_public_access_block.frontend]
 }
 
-# IAM role for Lambda
+# Optional: use existing IAM role when it already exists (avoids EntityAlreadyExists)
+data "aws_iam_role" "existing_lambda" {
+  count  = var.existing_lambda_role_name != "" ? 1 : 0
+  name   = var.existing_lambda_role_name
+}
+
+# IAM role for Lambda (only created when not using an existing role)
 resource "aws_iam_role" "lambda_role" {
-  name = "${local.name_prefix}--new"
-  tags = local.common_tags
+  count  = var.existing_lambda_role_name != "" ? 0 : 1
+  name   = "${local.name_prefix}-lambda-role"
+  tags   = local.common_tags
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -106,24 +117,24 @@ resource "aws_iam_role" "lambda_role" {
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = aws_iam_role.lambda_role.name
+  role       = local.lambda_role_name
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_bedrock" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
-  role       = aws_iam_role.lambda_role.name
+  role       = local.lambda_role_name
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_s3" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-  role       = aws_iam_role.lambda_role.name
+  role       = local.lambda_role_name
 }
 
 # Lambda function
 resource "aws_lambda_function" "api" {
   filename         = "${path.module}/../backend/lambda-deployment.zip"
   function_name    = "${local.name_prefix}-api"
-  role             = aws_iam_role.lambda_role.arn
+  role             = local.lambda_role_arn
   handler          = "lambda_handler.handler"
   source_code_hash = filebase64sha256("${path.module}/../backend/lambda-deployment.zip")
   runtime          = "python3.12"
@@ -309,11 +320,12 @@ resource "aws_route53_record" "site_validation" {
     dvo.domain_name => dvo
   } : {}
 
-  zone_id = data.aws_route53_zone.root[0].zone_id
-  name    = each.value.resource_record_name
-  type    = each.value.resource_record_type
-  ttl     = 300
-  records = [each.value.resource_record_value]
+  zone_id         = data.aws_route53_zone.root[0].zone_id
+  name            = each.value.resource_record_name
+  type            = each.value.resource_record_type
+  ttl             = 300
+  records         = [each.value.resource_record_value]
+  allow_overwrite = true  # Allow updating existing validation records instead of failing
 }
 
 resource "aws_acm_certificate_validation" "site" {

@@ -51,3 +51,9 @@ variable "root_domain" {
   type        = string
   default     = ""
 }
+
+variable "existing_lambda_role_name" {
+  description = "If set, use this existing IAM role for Lambda instead of creating one. Use when the role already exists (e.g. after EntityAlreadyExists). Leave empty to create a new role."
+  type        = string
+  default     = ""
+}
