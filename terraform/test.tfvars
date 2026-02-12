@@ -1,0 +1,9 @@
+project_name             = "twin"
+environment              = "test"
+existing_lambda_role_name = "twin-test-lambda-role"  # Use existing role if it exists
+bedrock_model_id         = "amazon.nova-micro-v1:0"
+lambda_timeout           = 60
+api_throttle_burst_limit = 10
+api_throttle_rate_limit  = 5
+use_custom_domain        = false  # Set to false for dev/test (no Route53 hosted zone needed)
+root_domain              = ""
