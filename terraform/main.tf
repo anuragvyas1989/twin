@@ -15,9 +15,16 @@ locals {
     ManagedBy   = "terraform"
   }
 
-  # Use existing IAM role when specified, otherwise use the one we create
-  lambda_role_name = var.existing_lambda_role_name != "" ? var.existing_lambda_role_name : aws_iam_role.lambda_role[0].name
-  lambda_role_arn  = var.existing_lambda_role_name != "" ? data.aws_iam_role.existing_lambda[0].arn : aws_iam_role.lambda_role[0].arn
+  # Determine which role name to use: explicit variable or default pattern
+  lambda_role_name_to_check = var.existing_lambda_role_name != "" ? var.existing_lambda_role_name : "${local.name_prefix}-lambda-role"
+  
+  # Check if role exists via external data source
+  lambda_role_exists = try(data.external.check_lambda_role.result.exists == "true", false)
+  
+  # Use existing role if found, otherwise use the one we create
+  # Use try() to safely access data source/resource that may not exist based on count
+  lambda_role_name = local.lambda_role_exists && length(data.aws_iam_role.existing_lambda) > 0 ? data.aws_iam_role.existing_lambda[0].name : (length(aws_iam_role.lambda_role) > 0 ? aws_iam_role.lambda_role[0].name : local.lambda_role_name_to_check)
+  lambda_role_arn  = local.lambda_role_exists && length(data.aws_iam_role.existing_lambda) > 0 ? data.aws_iam_role.existing_lambda[0].arn : (length(aws_iam_role.lambda_role) > 0 ? aws_iam_role.lambda_role[0].arn : "")
 }
 
 # S3 bucket for conversation memory
@@ -89,17 +96,28 @@ resource "aws_s3_bucket_policy" "frontend" {
   depends_on = [aws_s3_bucket_public_access_block.frontend]
 }
 
-# Optional: use existing IAM role when it already exists (avoids EntityAlreadyExists)
-data "aws_iam_role" "existing_lambda" {
-  count  = var.existing_lambda_role_name != "" ? 1 : 0
-  name   = var.existing_lambda_role_name
+# Check if Lambda role already exists (avoids EntityAlreadyExists error)
+# Use external data source to check if role exists (cross-platform)
+# Try to use AWS CLI directly - works on both Windows and Unix
+# Falls back gracefully if AWS CLI is not available or role doesn't exist
+data "external" "check_lambda_role" {
+  program = [
+    "sh", "-c",
+    "if command -v aws >/dev/null 2>&1 && aws iam get-role --role-name '${local.lambda_role_name_to_check}' >/dev/null 2>&1; then echo '{\"exists\":\"true\"}'; else echo '{\"exists\":\"false\"}'; fi"
+  ]
 }
 
-# IAM role for Lambda (only created when not using an existing role)
+# Try to fetch existing Lambda role if it exists
+data "aws_iam_role" "existing_lambda" {
+  count = data.external.check_lambda_role.result.exists == "true" ? 1 : 0
+  name  = local.lambda_role_name_to_check
+}
+
+# IAM role for Lambda (only created if it doesn't already exist)
 resource "aws_iam_role" "lambda_role" {
-  count  = var.existing_lambda_role_name != "" ? 0 : 1
-  name   = "${local.name_prefix}-lambda-role"
-  tags   = local.common_tags
+  count = data.external.check_lambda_role.result.exists == "true" ? 0 : 1
+  name  = local.lambda_role_name_to_check
+  tags  = local.common_tags
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
