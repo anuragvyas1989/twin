@@ -226,9 +226,11 @@ resource "aws_lambda_permission" "api_gw" {
 }
 
 # CloudFront distribution
+# When using custom domain, wait for ACM certificate to be validated (must be in us-east-1)
 resource "aws_cloudfront_distribution" "main" {
   aliases = local.aliases
-  
+  depends_on = [aws_acm_certificate_validation.site]
+
   viewer_certificate {
     acm_certificate_arn            = var.use_custom_domain ? aws_acm_certificate.site[0].arn : null
     cloudfront_default_certificate = var.use_custom_domain ? false : true
