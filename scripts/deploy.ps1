@@ -30,10 +30,11 @@ if (-not (terraform workspace list | Select-String $Environment)) {
 }
 
 # Pass -var as separate quoted args so Terraform does not see "too many positional arguments"
-# Use environment-specific tfvars file if it exists (e.g. dev.tfvars, test.tfvars, prod.tfvars)
-$tfvarsFile = "$Environment.tfvars"
-if (Test-Path $tfvarsFile) {
-    & terraform apply -var-file="$tfvarsFile" "-var=project_name=$ProjectName" "-var=environment=$Environment" -auto-approve
+# Use terraform.tfvars for prod; otherwise use environment-specific tfvars if it exists (e.g. dev.tfvars, test.tfvars)
+if ($Environment -eq "prod") {
+    & terraform apply -var-file="terraform.tfvars" "-var=project_name=$ProjectName" "-var=environment=$Environment" -auto-approve
+} elseif (Test-Path "$Environment.tfvars") {
+    & terraform apply -var-file="$Environment.tfvars" "-var=project_name=$ProjectName" "-var=environment=$Environment" -auto-approve
 } else {
     & terraform apply "-var=project_name=$ProjectName" "-var=environment=$Environment" -auto-approve
 }

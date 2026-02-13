@@ -73,8 +73,11 @@ if [ ! -f "../backend/lambda-deployment.zip" ]; then
 fi
 
 # Run terraform destroy with auto-approve
-if [ "$ENVIRONMENT" = "prod" ] && [ -f "prod.tfvars" ]; then
-    terraform destroy -var-file=prod.tfvars -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve
+# Use terraform.tfvars for prod; otherwise use environment-specific tfvars if it exists
+if [ "$ENVIRONMENT" = "prod" ] && [ -f "terraform.tfvars" ]; then
+    terraform destroy -var-file=terraform.tfvars -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve
+elif [ -f "${ENVIRONMENT}.tfvars" ]; then
+    terraform destroy -var-file="${ENVIRONMENT}.tfvars" -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve
 else
     terraform destroy -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve
 fi

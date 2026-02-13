@@ -68,8 +68,14 @@ try {
 Write-Host "Running terraform destroy..." -ForegroundColor Yellow
 
 # Run terraform destroy with auto-approve
-if ($Environment -eq "prod" -and (Test-Path "prod.tfvars")) {
-    terraform destroy -var-file=prod.tfvars `
+# Use terraform.tfvars for prod; otherwise use environment-specific tfvars if it exists
+if ($Environment -eq "prod" -and (Test-Path "terraform.tfvars")) {
+    terraform destroy -var-file=terraform.tfvars `
+                     -var="project_name=$ProjectName" `
+                     -var="environment=$Environment" `
+                     -auto-approve
+} elseif (Test-Path "$Environment.tfvars") {
+    terraform destroy -var-file="$Environment.tfvars" `
                      -var="project_name=$ProjectName" `
                      -var="environment=$Environment" `
                      -auto-approve
