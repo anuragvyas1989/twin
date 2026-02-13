@@ -4,5 +4,5 @@ bedrock_model_id         = "amazon.nova-lite-v1:0"  # Use better model for produ
 lambda_timeout           = 60
 api_throttle_burst_limit = 20
 api_throttle_rate_limit  = 10
-use_custom_domain        = false
+use_custom_domain        = true
 root_domain              = "anuragdigitaltwin.com"  # Replace with your actual domain
